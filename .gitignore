@@ -1,0 +1,26 @@
+@'
+# Maven
+target/
+
+# Logs
+*.log
+
+# Compiled output
+*.class
+
+# Packaging
+*.jar
+*.war
+*.ear
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+
+# OS
+.DS_Store
+
+# Maven helper
+dependency-reduced-pom.xml
+'@ | Set-Content -Encoding UTF8 .gitignore

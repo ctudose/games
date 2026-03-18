@@ -1,0 +1,1 @@
+--module-path "C:\Users\FTudose\.m2\repository\org\openjfx\javafx-base\23.0.1\javafx-base-23.0.1-win.jar;C:\Users\FTudose\.m2\repository\org\openjfx\javafx-graphics\23.0.1\javafx-graphics-23.0.1-win.jar;C:\Users\FTudose\.m2\repository\org\openjfx\javafx-controls\23.0.1\javafx-controls-23.0.1-win.jar" --add-modules javafx.controls
