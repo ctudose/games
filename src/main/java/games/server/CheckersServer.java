@@ -10,6 +10,7 @@ import games.logics.checkers.RobotMove;
 import games.server.rooms.GameRoom;
 import games.server.rooms.RoomManager;
 import games.server.rooms.RoomSummary;
+import games.server.rest.CheckersRestServer;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -67,7 +68,16 @@ public class CheckersServer {
     private final RoomManager roomManager = new RoomManager();
 
     public static void main(String[] args) {
-        new CheckersServer().runTcp();
+        String transport = Config.getNetworkTransport();
+        if ("rest".equalsIgnoreCase(transport)) {
+            try {
+                new CheckersRestServer().start();
+            } catch (IOException e) {
+                log.error("Failed to start REST server", e);
+            }
+        } else {
+            new CheckersServer().runTcp();
+        }
     }
 
     private void runTcp() {
@@ -249,6 +259,7 @@ public class CheckersServer {
         ObjectNode root = MAPPER.createObjectNode();
         root.put("type", "state");
         root.put("roomId", room.getRoomId());
+        root.put("version", room.getStateVersion());
         root.put("playerAtMoveIndex", room.getGame().getPlayerAtMoveIndex());
 
         ArrayNode players = root.putArray("players");
@@ -356,7 +367,13 @@ public class CheckersServer {
                 }
             }
 
-            GameMoveResult result = room.getGame().checkMove(currentPlayer, robotMove);
+            GameMoveResult result = room.applyMove(
+                    currentIndex,
+                    m.getXFrom(),
+                    m.getYFrom(),
+                    m.getXTo(),
+                    m.getYTo()
+            );
             if (result != GameMoveResult.CORRECT_MOVE) {
                 break;
             }

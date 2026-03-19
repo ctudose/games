@@ -10,8 +10,13 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.net.Socket;
 import java.util.function.Consumer;
+import java.time.Duration;
 
 /**
  * Helper to query the server for which roles (Player 1 / Player 2) are already taken.
@@ -39,6 +44,11 @@ public class RoleAvailabilityClient {
                             String roomId,
                             Consumer<boolean[]> onResult,
                             Consumer<String> onError) {
+        if ("rest".equals(Config.getClientTransport())) {
+            runRest(host, port, roomId, onResult, onError);
+            return;
+        }
+
         String protocol = Config.getClientProtocol();
 
         try (Socket socket = new Socket(host, port);
@@ -109,6 +119,52 @@ public class RoleAvailabilityClient {
                 }
             }
         } catch (IOException | NumberFormatException e) {
+            if (onError != null) {
+                Platform.runLater(() -> onError.accept(e.getMessage()));
+            }
+        }
+    }
+
+    private static void runRest(String host,
+                                int port,
+                                String roomId,
+                                Consumer<boolean[]> onResult,
+                                Consumer<String> onError) {
+        HttpClient httpClient = HttpClient.newHttpClient();
+        try {
+            String url = "http://" + host + ":" + port + "/roles";
+            if (roomId != null) {
+                url += "?roomId=" + java.net.URLEncoder.encode(roomId, java.nio.charset.StandardCharsets.UTF_8);
+            }
+
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create(url))
+                    .timeout(Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                throw new IOException("HTTP " + resp.statusCode() + ": " + resp.body());
+            }
+
+            JsonNode root = MAPPER.readTree(resp.body());
+            String type = root.has("type") ? root.get("type").asText("") : "";
+            if (!"roles".equalsIgnoreCase(type)) {
+                throw new IOException("Unexpected response type: " + type);
+            }
+
+            boolean p0Taken = root.has("p0Taken") && root.get("p0Taken").asBoolean(false);
+            boolean p1Taken = root.has("p1Taken") && root.get("p1Taken").asBoolean(false);
+
+            boolean[] available = new boolean[2];
+            available[0] = !p0Taken;
+            available[1] = !p1Taken;
+
+            if (onResult != null) {
+                Platform.runLater(() -> onResult.accept(available));
+            }
+        } catch (Exception e) {
             if (onError != null) {
                 Platform.runLater(() -> onError.accept(e.getMessage()));
             }

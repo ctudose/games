@@ -1,6 +1,9 @@
 package games.server;
 
 import games.logics.GameMoveResult;
+import games.logics.GameMove;
+import games.logics.checkers.CheckersGameMove;
+import games.logics.checkers.RobotMove;
 import games.server.rooms.GameRoom;
 import org.junit.jupiter.api.Test;
 
@@ -73,6 +76,38 @@ public class GameRoomTest {
         // Typical opening move for player 0 (white): (2,5)->(3,4) should be legal in standard checkers setup
         GameMoveResult result = room.applyMove(0, 2, 5, 3, 4);
         assertNotNull(result);
+    }
+
+    @Test
+    void stateVersionIncrementsOnCorrectMove() {
+        GameRoom room = new GameRoom("r4");
+        CheckersServer server = new CheckersServer();
+
+        DummyHandler p1 = new DummyHandler(server);
+        DummyHandler p2 = new DummyHandler(server);
+        assertTrue(room.joinPlayer(0, p1, "P1"));
+        assertTrue(room.joinPlayer(1, p2, "P2"));
+
+        long v0 = room.getStateVersion();
+
+        GameMove robotMove = RobotMove.getRobotMove(room.getGame());
+        assertNotNull(robotMove);
+        assertTrue(robotMove instanceof CheckersGameMove);
+
+        CheckersGameMove m = (CheckersGameMove) robotMove;
+        int playerIndex = room.getGame().getPlayerAtMoveIndex();
+
+        GameMoveResult result = room.applyMove(
+                playerIndex,
+                m.getXFrom(),
+                m.getYFrom(),
+                m.getXTo(),
+                m.getYTo()
+        );
+
+        assertAll(
+                () -> assertEquals(GameMoveResult.CORRECT_MOVE, result),
+                () -> assertEquals(v0 + 1, room.getStateVersion()));
     }
 }
 

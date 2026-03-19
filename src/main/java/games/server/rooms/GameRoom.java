@@ -15,6 +15,8 @@ public final class GameRoom {
 
     private final String roomId;
     private final CheckersGame game;
+    private long stateVersion = 0L;
+    private final boolean[] playerSlotsTaken = new boolean[2];
     private final CheckersServer.ClientHandler[] players = new CheckersServer.ClientHandler[2];
     private final List<CheckersServer.ClientHandler> spectators = new CopyOnWriteArrayList<>();
 
@@ -24,6 +26,8 @@ public final class GameRoom {
         game.setPlayer(0, "Player 1");
         game.setPlayer(1, "Player 2");
         game.start();
+        playerSlotsTaken[0] = false;
+        playerSlotsTaken[1] = false;
     }
 
     public String getRoomId() {
@@ -32,6 +36,10 @@ public final class GameRoom {
 
     public CheckersGame getGame() {
         return game;
+    }
+
+    public long getStateVersion() {
+        return stateVersion;
     }
 
     public CheckersServer.ClientHandler getPlayer(int index) {
@@ -47,13 +55,18 @@ public final class GameRoom {
             return false;
         }
         synchronized (players) {
-            if (players[index] != null) {
+            if (playerSlotsTaken[index]) {
                 return false;
             }
             players[index] = handler;
             game.setPlayer(index, name);
+            playerSlotsTaken[index] = true;
         }
         return true;
+    }
+
+    public boolean joinPlayer(int index, String name) {
+        return joinPlayer(index, null, name);
     }
 
     public void leavePlayer(CheckersServer.ClientHandler handler) {
@@ -61,8 +74,21 @@ public final class GameRoom {
             for (int i = 0; i < players.length; i++) {
                 if (players[i] == handler) {
                     players[i] = null;
+                    game.setPlayer(i, null);
+                    playerSlotsTaken[i] = false;
                 }
             }
+        }
+    }
+
+    public void leavePlayer(int index) {
+        if (index < 0 || index > 1) {
+            return;
+        }
+        synchronized (players) {
+            players[index] = null;
+            game.setPlayer(index, null);
+            playerSlotsTaken[index] = false;
         }
     }
 
@@ -83,11 +109,15 @@ public final class GameRoom {
             return GameMoveResult.NOT_ONE_OF_PLAYERS;
         }
         CheckersGameMove move = new CheckersGameMove(xFrom, yFrom, xTo, yTo);
-        return game.checkMove(player, move);
+        GameMoveResult result = game.checkMove(player, move);
+        if (result == GameMoveResult.CORRECT_MOVE) {
+            stateVersion++;
+        }
+        return result;
     }
 
     public boolean isPlayerSlotTaken(int index) {
-        return players[index] != null;
+        return playerSlotsTaken[index];
     }
 
     public int getSpectatorCount() {

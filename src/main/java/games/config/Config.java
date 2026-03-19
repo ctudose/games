@@ -40,6 +40,20 @@ public final class Config {
         return get("network.host", "localhost");
     }
 
+    public static String getNetworkTransport() {
+        String value = PROPS.getProperty("network.transport");
+
+        if (value != null) {
+            String trimmed = value.trim().toLowerCase();
+            if ("tcp".equals(trimmed) || "rest".equals(trimmed)) {
+                return trimmed;
+            }
+            log.error("Config: invalid network.transport \"{}\", using default tcp", value);
+        }
+
+        return "tcp";
+    }
+
     public static int getTextPort() {
         String value = PROPS.getProperty("network.port.text");
 
@@ -68,6 +82,20 @@ public final class Config {
 
         // Fallback for older configs that only had network.port
         return getLegacyNetworkPortOrDefault(5001);
+    }
+
+    public static int getRestPort() {
+        String value = PROPS.getProperty("network.rest.port");
+
+        if (value != null) {
+            try {
+                return Integer.parseInt(value.trim());
+            } catch (NumberFormatException e) {
+                log.error("Config: invalid network.rest.port \"{}\", using default 5002", value);
+            }
+        }
+
+        return 5002;
     }
 
     private static int getLegacyNetworkPortOrDefault(int defaultPort) {
@@ -111,9 +139,28 @@ public final class Config {
             }
         }
 
-        // Default per protocol
+        String transport = getClientTransport();
+        if ("rest".equals(transport)) {
+            return getRestPort();
+        }
+
+        // Default per protocol (TCP)
         String protocol = getClientProtocol();
         return "json".equals(protocol) ? getJsonPort() : getTextPort();
+    }
+
+    public static String getClientTransport() {
+        String value = PROPS.getProperty("client.transport");
+
+        if (value != null) {
+            String trimmed = value.trim().toLowerCase();
+            if ("tcp".equals(trimmed) || "rest".equals(trimmed)) {
+                return trimmed;
+            }
+            log.error("Config: invalid client.transport \"{}\", using default tcp", value);
+        }
+
+        return "tcp";
     }
 
     public static long getRobotDelayMillis() {

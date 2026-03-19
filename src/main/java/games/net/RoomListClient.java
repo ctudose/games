@@ -10,10 +10,15 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 import java.net.Socket;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.time.Duration;
 
 public class RoomListClient {
 
@@ -41,6 +46,11 @@ public class RoomListClient {
                                 int port,
                                 Consumer<List<RoomInfo>> onResult,
                                 Consumer<String> onError) {
+        if ("rest".equals(Config.getClientTransport())) {
+            runListRest(host, port, onResult, onError);
+            return;
+        }
+
         String protocol = Config.getClientProtocol();
 
         try (Socket socket = new Socket(host, port);
@@ -73,6 +83,11 @@ public class RoomListClient {
                                   int port,
                                   Consumer<String> onRoomId,
                                   Consumer<String> onError) {
+        if ("rest".equals(Config.getClientTransport())) {
+            runCreateRest(host, port, onRoomId, onError);
+            return;
+        }
+
         String protocol = Config.getClientProtocol();
 
         try (Socket socket = new Socket(host, port);
@@ -96,6 +111,82 @@ public class RoomListClient {
                 Platform.runLater(() -> onRoomId.accept(finalRoomId));
             }
         } catch (IOException e) {
+            if (onError != null) {
+                Platform.runLater(() -> onError.accept(e.getMessage()));
+            }
+        }
+    }
+
+    private static void runListRest(String host,
+                                     int port,
+                                     Consumer<List<RoomInfo>> onResult,
+                                     Consumer<String> onError) {
+        HttpClient httpClient = HttpClient.newHttpClient();
+        try {
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create("http://" + host + ":" + port + "/rooms"))
+                    .timeout(Duration.ofSeconds(10))
+                    .GET()
+                    .build();
+
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                throw new IOException("HTTP " + resp.statusCode() + ": " + resp.body());
+            }
+
+            JsonNode root = MAPPER.readTree(resp.body());
+            String type = root.has("type") ? root.get("type").asText("") : "";
+            if (!"rooms".equalsIgnoreCase(type)) {
+                throw new IOException("Unexpected response type: " + type);
+            }
+
+            List<RoomInfo> rooms = new ArrayList<>();
+            JsonNode arr = root.get("rooms");
+            if (arr != null && arr.isArray()) {
+                for (JsonNode r : arr) {
+                    String roomId = r.has("roomId") ? r.get("roomId").asText("") : "";
+                    boolean p1Taken = r.has("p1Taken") && r.get("p1Taken").asBoolean(false);
+                    boolean p2Taken = r.has("p2Taken") && r.get("p2Taken").asBoolean(false);
+                    int spectators = r.has("spectators") ? r.get("spectators").asInt(0) : 0;
+                    if (!roomId.isEmpty()) {
+                        rooms.add(new RoomInfo(roomId, p1Taken, p2Taken, spectators));
+                    }
+                }
+            }
+
+            if (onResult != null) {
+                Platform.runLater(() -> onResult.accept(rooms));
+            }
+        } catch (Exception e) {
+            if (onError != null) {
+                Platform.runLater(() -> onError.accept(e.getMessage()));
+            }
+        }
+    }
+
+    private static void runCreateRest(String host,
+                                       int port,
+                                       Consumer<String> onRoomId,
+                                       Consumer<String> onError) {
+        HttpClient httpClient = HttpClient.newHttpClient();
+        try {
+            HttpRequest req = HttpRequest.newBuilder()
+                    .uri(URI.create("http://" + host + ":" + port + "/rooms/create"))
+                    .timeout(Duration.ofSeconds(10))
+                    .POST(HttpRequest.BodyPublishers.noBody())
+                    .build();
+
+            HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
+            if (resp.statusCode() < 200 || resp.statusCode() >= 300) {
+                throw new IOException("HTTP " + resp.statusCode() + ": " + resp.body());
+            }
+
+            JsonNode root = MAPPER.readTree(resp.body());
+            if (onRoomId != null && root.has("roomId")) {
+                String roomId = root.get("roomId").asText("");
+                Platform.runLater(() -> onRoomId.accept(roomId));
+            }
+        } catch (Exception e) {
             if (onError != null) {
                 Platform.runLater(() -> onError.accept(e.getMessage()));
             }

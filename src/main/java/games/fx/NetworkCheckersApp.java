@@ -4,6 +4,7 @@ import games.config.Config;
 import games.net.CheckersClientConnection;
 import games.net.CheckersConnection;
 import games.net.JsonCheckersClientConnection;
+import games.net.RestCheckersClientConnection;
 import games.net.NetworkGameState;
 import games.net.RoleAvailabilityClient;
 import games.net.RoomInfo;
@@ -207,8 +208,18 @@ public class NetworkCheckersApp extends Application {
         // Now create the real connection with callbacks wired to the controller
         CheckersConnection connection;
 
-        String protocol = Config.getClientProtocol();
-        if ("json".equals(protocol)) {
+        String transport = Config.getClientTransport();
+        if ("rest".equals(transport)) {
+            connection = new RestCheckersClientConnection(
+                    DEFAULT_HOST,
+                    DEFAULT_PORT,
+                    roomId,
+                    playerIndex,
+                    playerName,
+                    (NetworkGameState state) -> controller.onStateUpdate(state),
+                    controller::onError
+            );
+        } else if ("json".equals(Config.getClientProtocol())) {
             connection = new JsonCheckersClientConnection(
                     DEFAULT_HOST,
                     DEFAULT_PORT,
@@ -285,8 +296,18 @@ public class NetworkCheckersApp extends Application {
         // Use requestedPlayerIndex=-1 which maps to JOIN S
         CheckersConnection connection;
 
-        String protocol = Config.getClientProtocol();
-        if ("json".equals(protocol)) {
+        String transport = Config.getClientTransport();
+        if ("rest".equals(transport)) {
+            connection = new RestCheckersClientConnection(
+                    DEFAULT_HOST,
+                    DEFAULT_PORT,
+                    roomId,
+                    -1,
+                    name,
+                    (NetworkGameState state) -> controller.onStateUpdate(state),
+                    controller::onError
+            );
+        } else if ("json".equals(Config.getClientProtocol())) {
             connection = new JsonCheckersClientConnection(
                     DEFAULT_HOST,
                     DEFAULT_PORT,

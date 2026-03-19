@@ -19,9 +19,10 @@ public class RoomManagerTest {
 
         for (int i = 0; i < 20; i++) {
             String id = manager.createRoom().getRoomId();
-            assertNotNull(id);
-            assertFalse(id.isEmpty());
-            assertTrue(ids.add(id), "Duplicate roomId: " + id);
+            assertAll(
+                    () -> assertNotNull(id),
+                    () -> assertFalse(id.isEmpty()),
+                    () -> assertTrue(ids.add(id), "Duplicate roomId: " + id));
         }
     }
 
