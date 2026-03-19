@@ -1,9 +1,14 @@
-# Checkers (JavaFX + TCP)
+# Checkers (JavaFX + Network)
 
-This project supports two wire protocols between the network client and `games.server.CheckersServer`:
+This project supports two transport modes:
 
-- **Text protocol** (legacy, default): line-based commands like `JOIN`, `MOVE`, `STATE`, `ROLES`
-- **JSON protocol** (optional): one JSON object per line (newline-delimited JSON)
+- **TCP sockets**: text or JSON line protocol
+- **REST polling**: HTTP JSON endpoints with versioned state polling
+
+When using TCP, you can still choose wire format per client:
+
+- **Text protocol**: line-based commands like `JOIN`, `MOVE`, `STATE`, `ROLES`
+- **JSON protocol**: one JSON object per line (newline-delimited JSON)
 
 ## Configuration
 
@@ -11,22 +16,50 @@ All configuration is loaded from `src/main/resources/games/config.properties` (s
 
 ### Server (per server process)
 
-- `network.port`: TCP port this server instance listens on
-- `server.protocol`: `text` or `json` (defaults to `text`)
+- `network.host`: host/interface to bind to (default `localhost`)
+- `network.transport`: `tcp` or `rest` (default `tcp`)
+- `network.port.text`: TCP text listener port (default `5000`)
+- `network.port.json`: TCP JSON listener port (default `5001`)
+- `network.rest.port`: REST server port (default `5002`)
 
 ### Client (per client process)
 
-- `client.protocol`: `text` or `json` (defaults to `text`)
-- `client.port`: optional; if missing, the client falls back to `network.port`
+- `client.transport`: `tcp` or `rest` (default `tcp`)
+- `client.protocol`: `text` or `json` (used only when `client.transport=tcp`)
+- `client.port`: optional override; if missing:
+  - REST client uses `network.rest.port`
+  - TCP client uses `network.port.text` or `network.port.json` based on `client.protocol`
 
-## Run multiple servers (different ports/protocols)
+### Important
 
-You can start multiple server JVMs at once, each reading a different `.properties` file (one per instance), e.g.:
+For a working setup, **server and client transports must match**:
 
-- Server A: `server.protocol=text`, `network.port=5000`
-- Server B: `server.protocol=json`, `network.port=5001`
+- `network.transport=tcp` with `client.transport=tcp`
+- `network.transport=rest` with `client.transport=rest`
 
-Clients must connect to the matching port and use the matching `client.protocol`.
+## TCP mode (dual listeners)
+
+When `network.transport=tcp`, `CheckersServer` starts both listeners:
+
+- text on `network.port.text`
+- JSON on `network.port.json`
+
+This allows mixed clients in one room (one text, one JSON) against the same game state.
+
+## REST mode
+
+When `network.transport=rest`, `CheckersServer` starts `games.server.rest.CheckersRestServer`.
+
+REST endpoints:
+
+- `GET /rooms`
+- `POST /rooms/create`
+- `GET /roles?roomId=<id>`
+- `POST /join`
+- `POST /move`
+- `GET /state?roomId=<id>&token=<sessionToken>`
+
+`/state` includes a `version` field. REST clients poll `/state` and redraw only when `version` changes.
 
 ## JSON protocol (newline-delimited)
 
@@ -47,5 +80,12 @@ Server → Client:
 - Roles:
   - `{"type":"roles","p0Taken":true,"p1Taken":false}`
 - State:
-  - `{"type":"state","playerAtMoveIndex":0,"players":[...],"draw":false,"winnerIndex":-1,"board":["........", "..."]}`
+  - `{"type":"state","roomId":"default","version":12,"playerAtMoveIndex":0,"players":[...],"draw":false,"winnerIndex":-1,"board":["........", "..."]}`
+
+## Build and tests
+
+- Run all tests during install:
+  - `mvn clean install`
+
+`pom.xml` uses `maven-surefire-plugin` so unit tests run in the Maven `test` phase.
 
