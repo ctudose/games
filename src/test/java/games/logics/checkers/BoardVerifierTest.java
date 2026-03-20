@@ -1,5 +1,6 @@
 package games.logics.checkers;
 
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertAll;
@@ -10,6 +11,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class BoardVerifierTest {
 
     @Test
+    @DisplayName("Given coordinates at and around the board limits When validCoordinates is called Then it returns true only for valid coordinates")
     void validCoordinatesRespectsLimits() {
         assertAll(
                 () -> assertTrue(BoardVerifier.validCoordinates(0, 0)),
@@ -23,6 +25,7 @@ class BoardVerifierTest {
     }
 
     @Test
+    @DisplayName("Given a rank index When isLastLine is called Then it identifies the first and last ranks as last line")
     void isLastLineDetectsFirstAndLastRanks() {
         assertAll(
                 () -> assertTrue(BoardVerifier.isLastLine(BoardVerifier.lowerLimit)),
@@ -34,6 +37,7 @@ class BoardVerifierTest {
     }
 
     @Test
+    @DisplayName("Given an empty board When initBoard is executed Then it places twelve pieces per color")
     void initBoardPlacesTwelvePiecesPerColor() {
         CheckersPiece[][] board = new CheckersPiece[BoardVerifier.upperLimit][BoardVerifier.upperLimit];
 
@@ -49,6 +53,7 @@ class BoardVerifierTest {
     }
 
     @Test
+    @DisplayName("Given a board with pieces When resetBoard is executed Then all squares become empty")
     void resetBoardClearsAllSquares() {
         CheckersPiece[][] board = new CheckersPiece[BoardVerifier.upperLimit][BoardVerifier.upperLimit];
         BoardVerifier.initBoard(board);

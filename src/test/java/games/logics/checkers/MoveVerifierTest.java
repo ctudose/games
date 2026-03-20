@@ -1,11 +1,14 @@
 package games.logics.checkers;
 
+import games.logics.GameMoveResult;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static games.logics.checkers.BoardVerifier.upperLimit;
 import static org.junit.jupiter.api.Assertions.assertAll;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class MoveVerifierTest {
@@ -18,6 +21,7 @@ class MoveVerifierTest {
     }
 
     @Test
+    @DisplayName("Given move coordinates When moveOutsideTable is called Then it returns true only for out-of-bounds coordinates")
     void moveOutsideTableRejectsOutOfBounds() {
         assertAll(
                 () -> assertTrue(MoveVerifier.moveOutsideTable(-1, 0, 0, 1)),
@@ -27,6 +31,7 @@ class MoveVerifierTest {
     }
 
     @Test
+    @DisplayName("Given diagonal endpoints When isLegalDiagonalMove is called Then it accepts both simple moves and capture moves")
     void isLegalDiagonalMoveAcceptsSingleAndDoubleSteps() {
         assertAll(
                 () -> assertTrue(MoveVerifier.isLegalDiagonalMove(2, 2, 3, 3)), // single step
@@ -38,6 +43,7 @@ class MoveVerifierTest {
     }
 
     @Test
+    @DisplayName("Given a non-king man and a move direction When manBackwardMove is called Then it returns true only for forbidden backward motion")
     void manBackwardMovePreventsNonKingMovingBackwards() {
         CheckersPiece whiteMan = new CheckersPiece(false, false); // moves +y
         CheckersPiece blackMan = new CheckersPiece(true, false);  // moves -y
@@ -54,6 +60,7 @@ class MoveVerifierTest {
     }
 
     @Test
+    @DisplayName("Given a piece and target squares When allowedSimpleMove is called Then it requires empty target and valid forward direction")
     void allowedSimpleMoveHonorsEmptyTargetAndForwardDirection() {
         // Place a white man (color=false) at (2,2), moving forward +y
         board[2][2] = new CheckersPiece(false, false);
@@ -71,6 +78,7 @@ class MoveVerifierTest {
     }
 
     @Test
+    @DisplayName("Given a capture scenario When allowedCapture is called Then it requires an opponent in between and an empty landing square")
     void allowedCaptureRequiresOpponentPieceAndEmptyLandingSquare() {
         // White man at (2,2), black man at (3,3), landing at (4,4)
         board[2][2] = new CheckersPiece(false, false);
@@ -89,6 +97,7 @@ class MoveVerifierTest {
     }
 
     @Test
+    @DisplayName("Given a board When canMakeAMove is called Then it reports whether any legal move exists for the player")
     void canMakeAMoveDetectsAnyLegalMoveForPlayer() {
         assertAll(
                 // Empty board -> no moves
@@ -99,6 +108,29 @@ class MoveVerifierTest {
                     board[2][2] = new CheckersPiece(false, false);
                     assertTrue(MoveVerifier.canMakeAMove(board, 0));
                 }
+        );
+    }
+
+    @Test
+    @DisplayName("Given a king piece When CheckersGame.checkMove is called for a backward move Then the move is accepted")
+    void kingAllowsBackwardSimpleMoveInCheckersGame() {
+        CheckersGame game = new CheckersGame();
+        game.setPlayer(0, "P0");
+        game.setPlayer(1, "P1");
+        game.start();
+
+        // Build a minimal board: only a white king at (2,2)
+        BoardVerifier.resetBoard(game.getBoard());
+        game.getBoard()[2][2] = new CheckersPiece(false, true);
+
+        // Try a backward simple move for a king: (2,2) -> (1,1)
+        // A non-king man would be rejected, but the king should be accepted.
+        CheckersGameMove move = new CheckersGameMove(2, 2, 1, 1);
+        Object player = game.getPlayer(0);
+
+        assertAll(
+                () -> assertEquals(GameMoveResult.CORRECT_MOVE, game.checkMove(player, move)),
+                () -> assertTrue(game.getBoard()[1][1].isKing(), "Expected moved piece to remain a king")
         );
     }
 }

@@ -22,8 +22,10 @@ import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.net.InetAddress;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketTimeoutException;
 import java.util.Arrays;
 import java.util.List;
 
@@ -67,6 +69,12 @@ public class CheckersServer {
 
     private final RoomManager roomManager = new RoomManager();
 
+    private volatile boolean running = false;
+    private ServerSocket textServerSocket;
+    private ServerSocket jsonServerSocket;
+    private Thread textThread;
+    private Thread jsonThread;
+
     public static void main(String[] args) {
         String transport = Config.getNetworkTransport();
         if ("rest".equalsIgnoreCase(transport)) {
@@ -81,37 +89,90 @@ public class CheckersServer {
     }
 
     private void runTcp() {
-        int textPort = Config.getTextPort();
-        int jsonPort = Config.getJsonPort();
-
-        log.info("CheckersServer starting TCP with text port {} and json port {}", textPort, jsonPort);
-
-        Thread textThread = new Thread(() -> acceptLoop(textPort, false), "TextListener-" + textPort);
-        Thread jsonThread = new Thread(() -> acceptLoop(jsonPort, true), "JsonListener-" + jsonPort);
-
-        textThread.setDaemon(false);
-        jsonThread.setDaemon(false);
-
-        textThread.start();
-        jsonThread.start();
+        startTcp(Config.getNetworkHost(), Config.getTextPort(), Config.getJsonPort());
     }
 
-    private void acceptLoop(int port, boolean json) {
-        try (ServerSocket serverSocket = new ServerSocket(port)) {
+    public void startTcp(String host, int textPort, int jsonPort) {
+        if (running) {
+            return;
+        }
+
+        running = true;
+
+        try {
+            InetAddress bindAddress = (host == null || host.trim().isEmpty())
+                    ? InetAddress.getByName("localhost")
+                    : InetAddress.getByName(host.trim());
+
+            textServerSocket = new ServerSocket(textPort, 50, bindAddress);
+            jsonServerSocket = new ServerSocket(jsonPort, 50, bindAddress);
+
+            log.info("CheckersServer starting TCP with text port {} and json port {}", textPort, jsonPort);
+
+            textThread = new Thread(() -> acceptLoop(textServerSocket, textPort, false), "TextListener-" + textPort);
+            jsonThread = new Thread(() -> acceptLoop(jsonServerSocket, jsonPort, true), "JsonListener-" + jsonPort);
+
+            textThread.setDaemon(false);
+            jsonThread.setDaemon(false);
+
+            textThread.start();
+            jsonThread.start();
+        } catch (Exception e) {
+            running = false;
+            stopTcp();
+            throw new RuntimeException("Failed to start TCP server", e);
+        }
+    }
+
+    public void stopTcp() {
+        running = false;
+
+        try {
+            if (textServerSocket != null) {
+                textServerSocket.close();
+            }
+        } catch (IOException ignored) {
+        }
+
+        try {
+            if (jsonServerSocket != null) {
+                jsonServerSocket.close();
+            }
+        } catch (IOException ignored) {
+        }
+
+        if (textThread != null) {
+            textThread.interrupt();
+        }
+        if (jsonThread != null) {
+            jsonThread.interrupt();
+        }
+    }
+
+    private void acceptLoop(ServerSocket serverSocket, int port, boolean json) {
+        try {
             log.info("Listener started on port {} (protocol={})", port, json ? "json" : "text");
+            // Avoid blocking shutdown too long; accept() will wake up due to timeout.
+            serverSocket.setSoTimeout(500);
 
-            while (true) {
-                Socket socket = serverSocket.accept();
-                log.info("Incoming connection on {} from {}", port, socket.getRemoteSocketAddress());
+            while (running) {
+                try {
+                    Socket socket = serverSocket.accept();
+                    log.info("Incoming connection on {} from {}", port, socket.getRemoteSocketAddress());
 
-                ClientHandler handler = json
-                        ? new JsonClientHandler(socket)
-                        : new TextClientHandler(socket);
-                new Thread(handler, (json ? "JsonClientHandler-" : "TextClientHandler-") + socket.getRemoteSocketAddress())
-                        .start();
+                    ClientHandler handler = json
+                            ? new JsonClientHandler(socket)
+                            : new TextClientHandler(socket);
+                    new Thread(handler, (json ? "JsonClientHandler-" : "TextClientHandler-") + socket.getRemoteSocketAddress())
+                            .start();
+                } catch (SocketTimeoutException timeout) {
+                    // periodic check of `running`
+                }
             }
         } catch (IOException e) {
-            log.error("Listener IOException on port {}", port, e);
+            if (running) {
+                log.error("Listener IOException on port {}", port, e);
+            }
         }
     }
 

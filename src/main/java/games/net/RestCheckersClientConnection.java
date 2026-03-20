@@ -60,6 +60,22 @@ public class RestCheckersClientConnection implements CheckersConnection {
                 .build();
     }
 
+    /**
+     * Test/integration helper: create a connection using an already-issued REST session token.
+     * This skips the POST /join step and immediately starts polling /state.
+     */
+    public RestCheckersClientConnection(String host,
+                                        int port,
+                                        String roomId,
+                                        int requestedPlayerIndex,
+                                        String playerName,
+                                        Consumer<NetworkGameState> stateListener,
+                                        Consumer<String> errorListener,
+                                        String token) {
+        this(host, port, roomId, requestedPlayerIndex, playerName, stateListener, errorListener);
+        this.token = token;
+    }
+
     @Override
     public void connectAsync() {
         Thread t = new Thread(this::runConnection, "RestCheckersClientConnection");
@@ -69,10 +85,12 @@ public class RestCheckersClientConnection implements CheckersConnection {
 
     private void runConnection() {
         try {
-            this.token = join();
             if (token == null || token.isEmpty()) {
-                notifyError("REST join failed: missing token");
-                return;
+                this.token = join();
+                if (token == null || token.isEmpty()) {
+                    notifyError("REST join failed: missing token");
+                    return;
+                }
             }
 
             while (!closed) {

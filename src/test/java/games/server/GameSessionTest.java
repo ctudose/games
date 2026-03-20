@@ -55,5 +55,23 @@ class GameSessionTest {
 
         assertEquals(GameMoveResult.CORRECT_MOVE, result);
     }
+
+    @Test
+    void applyMoveReturnsNotOneOfPlayersWhenPlayerSlotIsUnset() {
+        GameSession s = new GameSession();
+        s.setPlayer(0, "Player0");
+        // Intentionally do NOT set player 1.
+        s.start();
+
+        GameMoveResult result = s.applyMove(1, 0, 0, 1, 1);
+        assertEquals(GameMoveResult.NOT_ONE_OF_PLAYERS, result);
+    }
+
+    @Test
+    void illegalMoveInputReturnsWrongMove() {
+        // (0,0)->(1,1) is diagonal but (0,0) is empty in the initial position.
+        GameMoveResult result = session.applyMove(0, 0, 0, 1, 1);
+        assertEquals(GameMoveResult.WRONG_MOVE, result);
+    }
 }
 

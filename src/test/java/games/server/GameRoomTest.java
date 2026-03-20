@@ -109,5 +109,28 @@ public class GameRoomTest {
                 () -> assertEquals(GameMoveResult.CORRECT_MOVE, result),
                 () -> assertEquals(v0 + 1, room.getStateVersion()));
     }
+
+    @Test
+    void stateVersionDoesNotIncrementOnIllegalMoves() {
+        GameRoom room = new GameRoom("r5");
+        CheckersServer server = new CheckersServer();
+
+        DummyHandler p1 = new DummyHandler(server);
+        DummyHandler p2 = new DummyHandler(server);
+        assertTrue(room.joinPlayer(0, p1, "P1"));
+        assertTrue(room.joinPlayer(1, p2, "P2"));
+
+        long v0 = room.getStateVersion();
+
+        // Wrong turn: stateVersion should remain unchanged (engine returns NOT_ALLOWED_TO_MOVE_NOW)
+        GameMoveResult wrongTurn = room.applyMove(1, 2, 5, 3, 4);
+        assertNotEquals(GameMoveResult.CORRECT_MOVE, wrongTurn);
+        assertEquals(v0, room.getStateVersion());
+
+        // Illegal move by the correct player (empty source square) should also not increment.
+        GameMoveResult illegal = room.applyMove(0, 0, 0, 1, 1);
+        assertNotEquals(GameMoveResult.CORRECT_MOVE, illegal);
+        assertEquals(v0, room.getStateVersion());
+    }
 }
 

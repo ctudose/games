@@ -56,9 +56,16 @@ public class CheckersRestServer {
     private final Map<String, RestSession> sessions = new ConcurrentHashMap<>();
     private final ScheduledExecutorService cleanupExecutor = Executors.newSingleThreadScheduledExecutor();
 
+    private final String bindHost;
+    private final int bindPort;
+
     public CheckersRestServer() throws IOException {
-        int port = Config.getRestPort();
-        String host = Config.getNetworkHost();
+        this(Config.getNetworkHost(), Config.getRestPort());
+    }
+
+    public CheckersRestServer(String host, int port) throws IOException {
+        this.bindHost = host;
+        this.bindPort = port;
 
         // HttpServer doesn't support binding to "localhost" for some environments, but it's fine for this local setup.
         this.server = HttpServer.create(new InetSocketAddress(host, port), 0);
@@ -69,8 +76,20 @@ public class CheckersRestServer {
     }
 
     public void start() {
-        log.info("CheckersRestServer starting on port {}", Config.getRestPort());
+        log.info("CheckersRestServer starting on port {}", bindPort);
         server.start();
+    }
+
+    public void stop() {
+        try {
+            server.stop(0);
+        } catch (Exception ignored) {
+        }
+
+        try {
+            cleanupExecutor.shutdownNow();
+        } catch (Exception ignored) {
+        }
     }
 
     private void setupRoutes() {

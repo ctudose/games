@@ -2,6 +2,7 @@ package games.logics.checkers;
 
 import games.logics.GameMove;
 import games.logics.GameMoveResult;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -22,6 +23,7 @@ class RobotMoveTest {
     }
 
     @Test
+    @DisplayName("Given a game state with a legal move for the current player When RobotMove selects a move Then the move is accepted as CORRECT_MOVE")
     void getRobotMoveReturnsLegalMoveFromInitialPosition() {
         // Arrange
         Object currentPlayer = game.getPlayer(game.getPlayerAtMoveIndex());
