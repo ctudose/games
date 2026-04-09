@@ -12,7 +12,7 @@ When using TCP, you can still choose wire format per client:
 
 ## Configuration
 
-All configuration is loaded from `src/main/resources/games/config.properties` (see `games.config.Config`).
+All configuration is loaded from `games-desktop-lan/src/main/resources/games/config.properties` (see `games.config.Config` in `games-desktop-lan`).
 
 ### Server (per server process)
 
@@ -82,10 +82,60 @@ Server → Client:
 - State:
   - `{"type":"state","roomId":"default","version":12,"playerAtMoveIndex":0,"players":[...],"draw":false,"winnerIndex":-1,"board":["........", "..."]}`
 
+## Test matrix
+
+| Area | Scenario | Covered by | Test file |
+|---|---|---|---|
+| Engine (`games-shared-core`) | Forced-capture precedence with multiple candidate pieces | `CheckersGameTest` | [`games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java`](games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java) |
+| Engine (`games-shared-core`) | Multi-capture continuation and turn ownership | `CheckersGameTest` | [`games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java`](games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java) |
+| Engine (`games-shared-core`) | Promotion on last rank, including capture-to-last-rank | `CheckersGameTest` | [`games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java`](games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java) |
+| Engine (`games-shared-core`) | End-state transitions (last piece captured / no legal moves) | `CheckersGameTest` | [`games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java`](games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java) |
+| Engine (`games-shared-core`) | Invalid input robustness (`INVALID_DATA_FORMAT`, unknown/null player) | `CheckersGameTest` | [`games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java`](games-shared-core/src/test/java/games/logics/checkers/CheckersGameTest.java) |
+| Engine (`games-shared-core`) | Robot legality under forced-capture and no-legal-move behavior | `RobotMoveTest` | [`games-shared-core/src/test/java/games/logics/checkers/RobotMoveTest.java`](games-shared-core/src/test/java/games/logics/checkers/RobotMoveTest.java) |
+| Integration TCP (`games-desktop-lan`) | Turn accept/reject sequence (legal move then wrong turn) | `TcpJsonIntegrationTest` | [`games-desktop-lan/src/test/java/games/net/TcpJsonIntegrationTest.java`](games-desktop-lan/src/test/java/games/net/TcpJsonIntegrationTest.java) |
+| Integration TCP (`games-desktop-lan`) | Room isolation (room A move does not affect room B) | `TcpJsonIntegrationTest` | [`games-desktop-lan/src/test/java/games/net/TcpJsonIntegrationTest.java`](games-desktop-lan/src/test/java/games/net/TcpJsonIntegrationTest.java) |
+| Integration REST (`games-desktop-lan`) | Versioned state updates and board update after move | `RestTransportIntegrationTest` | [`games-desktop-lan/src/test/java/games/server/rest/RestTransportIntegrationTest.java`](games-desktop-lan/src/test/java/games/server/rest/RestTransportIntegrationTest.java) |
+| Integration REST (`games-desktop-lan`) | Wrong-turn rejection parity and spectator update consistency | `RestTransportIntegrationTest` | [`games-desktop-lan/src/test/java/games/server/rest/RestTransportIntegrationTest.java`](games-desktop-lan/src/test/java/games/server/rest/RestTransportIntegrationTest.java) |
+| Integration REST (`games-desktop-lan`) | Error paths (invalid token, spectator move forbidden) | `RestErrorPathsIntegrationTest` | [`games-desktop-lan/src/test/java/games/server/rest/RestErrorPathsIntegrationTest.java`](games-desktop-lan/src/test/java/games/server/rest/RestErrorPathsIntegrationTest.java) |
+
 ## Build and tests
 
-- Run all tests during install:
+- Run all modules:
   - `mvn clean install`
+
+- Run only shared core:
+  - `mvn -pl games-shared-core -am test`
+
+- Run only desktop/LAN app module:
+  - `mvn -pl games-desktop-lan -am test`
+
+- Compile desktop/LAN app with dependencies:
+  - `mvn -pl games-desktop-lan -am compile`
+
+### CI test lanes
+
+- Fast lane (default):
+  - `mvn -pl games-shared-core,games-desktop-lan -am test`
+
+- Behavior lane (Cucumber BDD):
+  - `mvn -pl games-desktop-lan -Pbehavior-tests test`
+
+- Quality lane (mutation testing with PiTest):
+  - `mvn -pl games-shared-core -Pquality-tests verify`
+  - `mvn -pl games-desktop-lan -Pquality-tests verify`
+
+- UI lane (TestFX + Monocle, non-default):
+  - `mvn -pl games-desktop-lan -Pui-tests verify`
+
+### Coverage (JaCoCo)
+
+- Run all tests with coverage and generate reports:
+  - `mvn clean verify`
+- Module reports:
+  - `games-shared-core/target/site/jacoco/index.html`
+  - `games-desktop-lan/target/site/jacoco/index.html`
+- Aggregated multi-module report:
+  - `target/site/jacoco-aggregate/index.html`
 
 `pom.xml` uses `maven-surefire-plugin` so unit tests run in the Maven `test` phase.
 
